@@ -8,6 +8,8 @@ import useSWR, { useSWRConfig } from 'swr'
 import { fetcher } from '@/lib/fetcher'
 import { ExpenseBubble } from './expense-bubble'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { EditExpenseModal } from '@/components/expense/edit-expense-modal'
+import { categories } from '@/lib/constants'
 import type { Group, Expense, Balance } from '@/lib/types'
 
 interface GroupSpaceProps {
@@ -23,6 +25,8 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [isLeaving, setIsLeaving] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
+  const [editingExpense, setEditingExpense] = useState<any>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   const { data: expensesData, isLoading: expensesLoading } = useSWR<any[]>(`/api/groups/${group.id}/expenses`, fetcher)
   const { data: groupBalancesData, isLoading: balancesLoading } = useSWR<Balance[]>(`/api/groups/${group.id}/balances`, fetcher)
@@ -38,6 +42,7 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
       hasSettled: s.hasSettled
     })),
     category: e.category.toLowerCase(),
+    emoji: categories.find(c => c.id === e.category.toLowerCase())?.emoji || '💰',
     date: e.createdAt,
     reactions: (e.reactions || []).reduce((acc: any[], curr: any) => {
       const existing = acc.find(r => r.emoji === curr.emoji)
@@ -49,6 +54,35 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
       return acc
     }, [])
   })) as any[] 
+
+  // Group expenses by date
+  const groupedExpenses = expenses.reduce((acc: any[], expense) => {
+    const date = new Date(expense.date)
+    const today = new Date()
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    let label = ''
+    if (date.toDateString() === today.toDateString()) {
+      label = 'Today'
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      label = 'Yesterday'
+    } else {
+      label = date.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric' 
+      })
+    }
+
+    const lastGroup = acc[acc.length - 1]
+    if (lastGroup && lastGroup.label === label) {
+      lastGroup.items.push(expense)
+    } else {
+      acc.push({ label, items: [expense] })
+    }
+    return acc
+  }, [])
 
   const { mutate } = useSWRConfig()
 
@@ -65,6 +99,37 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
     } catch (error) {
       console.error('Reaction error:', error)
     }
+  }
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'DELETE'
+      })
+      if (response.ok) {
+        mutate(`/api/groups/${group.id}/expenses`)
+        mutate(`/api/groups/${group.id}/balances`)
+        mutate('/api/groups') // Update main dashboard balances too
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Failed to delete expense')
+      }
+    } catch (error) {
+      console.error('Delete expense error:', error)
+    }
+  }
+
+  const handleEditUpdate = () => {
+    mutate(`/api/groups/${group.id}/expenses`)
+    mutate(`/api/groups/${group.id}/balances`)
+  }
+
+  const getBalanceFontSize = (balance: number) => {
+    const amountStr = Math.abs(balance).toFixed(2)
+    if (amountStr.length > 12) return 'text-xl'
+    if (amountStr.length > 10) return 'text-2xl'
+    if (amountStr.length > 8) return 'text-3xl'
+    return 'text-4xl'
   }
 
   const handleArchive = async () => {
@@ -183,7 +248,7 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
           >
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Your balance in this group</span>
-              <span className={`text-lg font-bold ${
+              <span className={`${getBalanceFontSize(group.userBalance || 0)} font-bold ${
                 (group.userBalance || 0) === 0
                   ? 'text-muted-foreground'
                   : isPositive
@@ -304,17 +369,17 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-8 py-6 md:py-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-10 pb-10">
         {/* Desktop Layout (Grid) */}
         <div className="hidden md:grid grid-cols-12 gap-10 items-start">
           {/* Left Column: Expenses */}
           <div className="md:col-span-7 space-y-6">
-            <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-0">
               <Activity className="w-5 h-5 text-primary" />
               Expenses
             </h2>
 
-            <div className="space-y-4">
+            <div className="space-y-0">
               {group.isArchived && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -326,13 +391,31 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
                 </motion.div>
               )}
 
-              {expenses.map((expense, index) => (
-                <ExpenseBubble
-                  key={expense.id}
-                  expense={expense}
-                  index={index}
-                  onReact={handleReact}
-                />
+              {groupedExpenses.map((group, groupIdx) => (
+                <div key={group.label}>
+                  <div className={`flex items-center gap-4 ${groupIdx === 0 ? 'pt-2 pb-4' : 'pt-8 pb-4'}`}>
+                    <div className="h-px flex-1 bg-border/40" />
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {group.label}
+                    </span>
+                    <div className="h-px flex-1 bg-border/40" />
+                  </div>
+                  <div className="space-y-4">
+                    {group.items.map((expense, index) => (
+                      <ExpenseBubble
+                        key={expense.id}
+                        expense={expense}
+                        index={index}
+                        onReact={handleReact}
+                        onDelete={handleDeleteExpense}
+                        onEdit={(exp) => {
+                          setEditingExpense(exp)
+                          setIsEditModalOpen(true)
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
 
               {expenses.length === 0 && !expensesLoading && (
@@ -392,14 +475,34 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-4"
               >
-                {expenses.map((expense, index) => (
-                  <ExpenseBubble
-                    key={expense.id}
-                    expense={expense}
-                    index={index}
-                    onReact={handleReact}
-                  />
+              <div className="space-y-0">
+                {groupedExpenses.map((group, groupIdx) => (
+                  <div key={group.label}>
+                    <div className={`flex items-center gap-4 ${groupIdx === 0 ? 'pt-2 pb-4' : 'pt-8 pb-4'}`}>
+                      <div className="h-px flex-1 bg-border/40" />
+                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        {group.label}
+                      </span>
+                      <div className="h-px flex-1 bg-border/40" />
+                    </div>
+                    <div className="space-y-4">
+                      {group.items.map((expense, index) => (
+                        <ExpenseBubble
+                          key={expense.id}
+                          expense={expense}
+                          index={index}
+                          onReact={handleReact}
+                          onDelete={handleDeleteExpense}
+                          onEdit={(exp) => {
+                            setEditingExpense(exp)
+                            setIsEditModalOpen(true)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
+              </div>
                 {expenses.length === 0 && !expensesLoading && (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
@@ -492,6 +595,14 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
         variant="default"
         isLoading={isArchiving}
       />
+
+      <EditExpenseModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUpdate={handleEditUpdate}
+        expense={editingExpense}
+        groupMembers={group.members}
+      />
     </div>
   )
 }
@@ -582,7 +693,7 @@ function GroupStats({ group }: { group: Group }) {
         className="glass-card rounded-xl p-6 text-center"
       >
         <p className="text-sm text-muted-foreground mb-2">Total Group Spending</p>
-        <p className="text-4xl font-bold">${(stats.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        <p className={`${getBalanceFontSize(stats.totalSpent || 0)} font-bold`}>${(stats.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
       </motion.div>
 
       {/* Category breakdown */}

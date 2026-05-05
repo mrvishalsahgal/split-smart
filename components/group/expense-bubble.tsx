@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Check } from 'lucide-react'
+import { ChevronDown, Check, Trash2, Pencil } from 'lucide-react'
 import type { Expense, User } from '@/lib/types'
 import { useSession } from 'next-auth/react'
 
@@ -10,11 +10,13 @@ interface ExpenseBubbleProps {
   expense: any // Using any for now to avoid deep type issues
   index: number
   onReact: (expenseId: string, emoji: string) => void
+  onDelete?: (expenseId: string) => void
+  onEdit?: (expense: any) => void
 }
 
 const reactionEmojis = ['👍', '😂', '💸', '😋', '🔥']
 
-export function ExpenseBubble({ expense, index, onReact }: ExpenseBubbleProps) {
+export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: ExpenseBubbleProps) {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const [isExpanded, setIsExpanded] = useState(false)
@@ -24,7 +26,10 @@ export function ExpenseBubble({ expense, index, onReact }: ExpenseBubbleProps) {
   const isPaidByMe = (payer?._id || payer?.id) === currentUserId
   const myShare = expense.splits?.find((s: any) => (s.user?._id || s.user?.id) === currentUserId)
   
-  const timeAgo = expense.createdAt ? getTimeAgo(new Date(expense.createdAt)) : 'recently'
+  const timeAgo = (expense.date || expense.createdAt) ? getTimeAgo(new Date(expense.date || expense.createdAt)) : 'recently'
+  
+  const canModify = isPaidByMe && (expense.date || expense.createdAt) && 
+    (new Date().getTime() - new Date(expense.date || expense.createdAt).getTime()) < 24 * 60 * 60 * 1000
   
   const payerInitials = payer?.name
     ? payer.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
@@ -35,7 +40,7 @@ export function ExpenseBubble({ expense, index, onReact }: ExpenseBubbleProps) {
       initial={{ opacity: 0, y: 20, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.1 }}
-      className={`flex gap-3 ${isPaidByMe ? 'flex-row-reverse' : ''}`}
+      className={`flex gap-3 group ${isPaidByMe ? 'flex-row-reverse' : ''}`}
     >
       {/* Avatar */}
       <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${expense?.paidBy?.color || 'bg-primary'} text-primary-foreground`}>
@@ -60,16 +65,44 @@ export function ExpenseBubble({ expense, index, onReact }: ExpenseBubbleProps) {
               <div>
                 <p className="font-medium">{expense?.description || expense?.title || 'Expense'}</p>
                 <p className="text-xs text-muted-foreground">
-                  {expense?.paidBy?.name || 'Someone'} paid • {timeAgo}
+                  {isPaidByMe ? 'You' : (expense?.paidBy?.name || 'Someone')} paid • {timeAgo}
                 </p>
               </div>
             </div>
             <div className="text-right">
               <p className="text-lg font-bold">${(expense?.amount ?? 0).toFixed(2)}</p>
               {myShare && !isPaidByMe && myShare.amountOwed > 0 && (
-                <p className={`text-xs ${myShare.hasSettled ? 'text-positive' : 'text-negative'}`}>
+                <p className={`text-xs font-semibold ${myShare.hasSettled ? 'text-positive' : 'text-negative'}`}>
                   {myShare.hasSettled ? 'Paid' : `You owe $${myShare.amountOwed.toFixed(2)}`}
                 </p>
+              )}
+              {canModify && (
+                <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-all">
+                  {onEdit && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEdit(expense)
+                      }}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm('Are you sure you want to delete this expense?')) {
+                          onDelete(expense.id)
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-negative hover:bg-negative/10 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -121,7 +154,7 @@ export function ExpenseBubble({ expense, index, onReact }: ExpenseBubbleProps) {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => onReact(expense.id, reaction.emoji)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full bg-secondary/80 text-sm hover:bg-secondary transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-sm hover:bg-secondary/80 transition-colors border border-white/5"
                 >
                   <span>{reaction.emoji}</span>
                   <span className="text-xs text-muted-foreground">{reaction.users?.length || 0}</span>
