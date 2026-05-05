@@ -2,6 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { ThemeProvider } from './theme-provider'
+import { PWAInstall } from './pwa-install'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         disableTransitionOnChange
       >
         {children}
+        <PWAInstall />
       </ThemeProvider>
     </SessionProvider>
   )

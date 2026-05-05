@@ -1,23 +1,12 @@
-const CACHE_NAME = 'sharely-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/manifest.webmanifest',
-  '/mobilelogo.png',
-  '/desktoplogo.png',
-];
-
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
-  );
+  // We can add caching logic here later if needed
+  // For now, just a pass-through to satisfy the PWA requirement
 });
