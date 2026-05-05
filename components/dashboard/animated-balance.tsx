@@ -52,11 +52,19 @@ export function AnimatedBalance({ amount, showPulse = true }: AnimatedBalancePro
     return <TrendingDown className="w-6 h-6" />
   }
 
+  const getFontSize = () => {
+    const digits = (Math.abs(amount) || 0).toFixed(0).length
+    if (digits > 8) return 'text-4xl md:text-3xl lg:text-4xl'
+    if (digits > 6) return 'text-5xl md:text-4xl lg:text-5xl'
+    if (digits > 4) return 'text-6xl md:text-5xl lg:text-6xl'
+    return 'text-7xl md:text-5xl lg:text-6xl'
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative flex flex-col items-center justify-center py-8"
+      className="relative flex flex-col items-center justify-center py-8 w-full max-w-full"
     >
       {/* Background glow effect */}
       <AnimatePresence>
@@ -97,11 +105,11 @@ export function AnimatedBalance({ amount, showPulse = true }: AnimatedBalancePro
       </motion.div>
 
       <motion.div
-        className="relative z-10 w-full text-center"
+        className="relative z-10 w-full text-center px-4"
         animate={isAnimating ? { scale: [1, 1.02, 1] } : {}}
         transition={{ duration: 0.3 }}
       >
-        <span className={`text-7xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-none inline-block max-w-full break-words ${
+        <span className={`${getFontSize()} font-black tracking-tighter leading-none inline-block max-w-full break-all ${
           isNeutral 
             ? 'text-muted-foreground' 
             : isPositive 

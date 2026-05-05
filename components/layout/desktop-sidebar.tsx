@@ -23,6 +23,12 @@ interface DesktopSidebarProps {
 
 export function DesktopSidebar({ activeView, onViewChange, unreadCount }: DesktopSidebarProps) {
   const { data: session } = useSession()
+  const user = session?.user
+  
+  const initials = user?.name
+    ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+    : '??'
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'people', label: 'People', icon: Users },
@@ -84,11 +90,11 @@ export function DesktopSidebar({ activeView, onViewChange, unreadCount }: Deskto
           className="flex items-center gap-3 w-full p-3 rounded-2xl hover:bg-secondary/50 transition-colors"
         >
           <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold">
-            {(session?.user?.name?.[0] || 'U').toUpperCase()}
+            {initials}
           </div>
           <div className="text-left overflow-hidden">
-            <p className="text-sm font-bold truncate">{session?.user?.name || 'User'}</p>
-            <p className="text-xs text-muted-foreground truncate">{session?.user?.email || 'user@example.com'}</p>
+            <p className="text-sm font-bold truncate">{user?.name || 'User'}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email || 'user@example.com'}</p>
           </div>
         </button>
 

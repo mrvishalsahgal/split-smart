@@ -124,14 +124,6 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
     mutate(`/api/groups/${group.id}/balances`)
   }
 
-  const getBalanceFontSize = (balance: number) => {
-    const amountStr = Math.abs(balance).toFixed(2)
-    if (amountStr.length > 12) return 'text-xl'
-    if (amountStr.length > 10) return 'text-2xl'
-    if (amountStr.length > 8) return 'text-3xl'
-    return 'text-4xl'
-  }
-
   const handleArchive = async () => {
     setIsArchiving(true)
     try {
@@ -248,7 +240,7 @@ export function GroupSpace({ group, onBack, onAddExpense, onAddMembers }: GroupS
           >
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Your balance in this group</span>
-              <span className={`${getBalanceFontSize(group.userBalance || 0)} font-bold ${
+              <span className={`text-lg font-bold ${
                 (group.userBalance || 0) === 0
                   ? 'text-muted-foreground'
                   : isPositive
@@ -693,7 +685,7 @@ function GroupStats({ group }: { group: Group }) {
         className="glass-card rounded-xl p-6 text-center"
       >
         <p className="text-sm text-muted-foreground mb-2">Total Group Spending</p>
-        <p className={`${getBalanceFontSize(stats.totalSpent || 0)} font-bold`}>${(stats.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        <p className="text-4xl font-bold">${(stats.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
       </motion.div>
 
       {/* Category breakdown */}
