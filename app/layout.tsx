@@ -8,22 +8,18 @@ export const metadata: Metadata = {
   title: 'Sharely - Split expenses. Not friendships',
   description: 'Real-time expense sharing for friends, roommates, and teams',
   generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Sharely',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/mobilelogo.png',
+    apple: '/mobilelogo.png',
   },
 }
 
@@ -44,6 +40,17 @@ export default function RootLayout({
           {children}
         </Providers>
         {process.env.NODE_ENV === 'production' && <Analytics />}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   )
