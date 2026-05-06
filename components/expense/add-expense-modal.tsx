@@ -6,7 +6,7 @@ import { X, Check, Users, ChevronRight, Sparkles, User, ArrowLeft, Loader2 } fro
 import { useSession } from 'next-auth/react'
 import useSWR from 'swr'
 import { fetcher } from '@/lib/fetcher'
-import { categories } from '@/lib/constants'
+import { categories } from '@/lib/mock-data'
 
 interface AddExpenseModalProps {
   isOpen: boolean
@@ -76,6 +76,9 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
     setIsSubmitting(true)
     
     try {
+      const categoryObj = categories.find(c => c.name === selectedCategory || c.id === selectedCategory)
+      const emoji = categoryObj?.emoji || '📦'
+
       const endpoint = expenseType === 'personal' ? '/api/expenses/personal' : '/api/expenses'
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -85,7 +88,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
           description,
           amount: parseFloat(amount),
           category: selectedCategory || 'other',
-          emoji: categories.find(c => c.id === selectedCategory)?.emoji || '📦',
+          emoji,
           groupId: selectedGroupId,
           splitWith: selectedMembers,
           splits: splitType === 'custom' 

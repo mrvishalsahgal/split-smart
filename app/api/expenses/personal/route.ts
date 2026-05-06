@@ -13,8 +13,7 @@ export async function GET() {
       paidBy: session.user.id,
       groupId: null
     })
-    .populate('paidBy', 'name avatar color email')
-    .populate('splits.user', 'name avatar color email')
+    .populate('paidBy', 'name avatar color')
     .sort({ createdAt: -1 })
 
     return NextResponse.json(expenses)
