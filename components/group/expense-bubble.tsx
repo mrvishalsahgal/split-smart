@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Check, Trash2, Pencil } from 'lucide-react'
 import type { Expense, User } from '@/lib/types'
 import { useSession } from 'next-auth/react'
+import { categories } from '@/lib/constants'
 
 interface ExpenseBubbleProps {
   expense: any // Using any for now to avoid deep type issues
@@ -21,9 +22,10 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
   const currentUserId = session?.user?.id
   const [isExpanded, setIsExpanded] = useState(false)
   const [showReactions, setShowReactions] = useState(false)
+  const [showActions, setShowActions] = useState(false)
   
   const payer = expense.paidBy
-  const isPaidByMe = (payer?._id || payer?.id) === currentUserId
+  const isPaidByMe = (payer?._id || payer?.id || (typeof payer === 'string' ? payer : null)) === currentUserId
   const myShare = expense.splits?.find((s: any) => (s.user?._id || s.user?.id) === currentUserId)
   
   const timeAgo = (expense.date || expense.createdAt) ? getTimeAgo(new Date(expense.date || expense.createdAt)) : 'recently'
@@ -33,7 +35,7 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
   
   const payerInitials = payer?.name
     ? payer.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
-    : '??'
+    : isPaidByMe ? session?.user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() : '??'
 
   return (
     <motion.div
@@ -52,20 +54,24 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
         <motion.div
           whileHover={{ scale: 1.01 }}
           onDoubleClick={() => setShowReactions(true)}
-          className={`glass-card rounded-2xl p-4 cursor-pointer ${
+          onClick={() => setShowActions(!showActions)}
+          className={`glass-card rounded-2xl p-4 cursor-pointer transition-all ${
             isPaidByMe 
               ? 'rounded-tr-md bg-primary/10' 
               : 'rounded-tl-md'
-          }`}
+          } ${showActions ? 'ring-2 ring-primary/20' : ''}`}
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">{expense.emoji}</span>
+              <span className="text-2xl">
+                {expense.emoji || categories.find(c => c.id === expense.category)?.emoji || '📦'}
+              </span>
               <div>
                 <p className="font-medium">{expense?.description || expense?.title || 'Expense'}</p>
                 <p className="text-xs text-muted-foreground">
                   {isPaidByMe ? 'You' : (expense?.paidBy?.name || 'Someone')} paid • {timeAgo}
+                  {!expense.groupId && <span className="ml-2 px-1.5 py-0.5 rounded bg-accent/10 text-accent font-bold uppercase text-[9px]">Private</span>}
                 </p>
               </div>
             </div>
@@ -77,7 +83,9 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
                 </p>
               )}
               {canModify && (
-                <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-all">
+                <div className={`flex items-center gap-1 mt-1 transition-all ${
+                  showActions ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
+                }`}>
                   {onEdit && (
                     <button
                       onClick={(e) => {
@@ -94,7 +102,7 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
                       onClick={(e) => {
                         e.stopPropagation()
                         if (confirm('Are you sure you want to delete this expense?')) {
-                          onDelete(expense.id)
+                          onDelete(expense._id || expense.id)
                         }
                       }}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-negative hover:bg-negative/10 transition-all"
@@ -107,19 +115,21 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
             </div>
           </div>
 
-          {/* Expand button */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <motion.div
-              animate={{ rotate: isExpanded ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
+          {/* Expand button - only show if there's more than 1 split OR it's a group expense */}
+          {expense.groupId && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ChevronDown className="w-4 h-4" />
-            </motion.div>
-            <span>Split {(expense.splits?.length || 0)} ways</span>
-          </button>
+              <motion.div
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-4 h-4" />
+              </motion.div>
+              <span>Split {(expense.splits?.length || 0)} ways</span>
+            </button>
+          )}
 
           {/* Split breakdown */}
           <AnimatePresence>
@@ -153,7 +163,7 @@ export function ExpenseBubble({ expense, index, onReact, onDelete, onEdit }: Exp
                   key={i}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => onReact(expense.id, reaction.emoji)}
+                  onClick={() => onReact(expense._id || expense.id, reaction.emoji)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-sm hover:bg-secondary/80 transition-colors border border-white/5"
                 >
                   <span>{reaction.emoji}</span>

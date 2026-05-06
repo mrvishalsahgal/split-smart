@@ -10,7 +10,8 @@ import {
   Bell, 
   User,
   PlusCircle,
-  PieChart
+  PieChart,
+  BookOpen
 } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import Image from 'next/image'
@@ -31,6 +32,7 @@ export function DesktopSidebar({ activeView, onViewChange, unreadCount }: Deskto
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'personal', label: 'Personal Ledger', icon: BookOpen },
     { id: 'people', label: 'People', icon: Users },
     { id: 'activity', label: 'Activity', icon: Activity },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount },

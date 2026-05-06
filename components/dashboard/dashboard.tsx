@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Bell, Settings, Search, User, Activity, Loader2, Archive, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Bell, Settings, Search, User, Activity, Loader2, Archive, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import useSWR from 'swr'
 import { fetcher } from '@/lib/fetcher'
@@ -23,6 +23,7 @@ interface DashboardProps {
   onOpenProfile: () => void
   onOpenActivity: () => void
   onOpenPeople: () => void
+  onOpenPersonal: () => void
 }
 
 export function Dashboard({ 
@@ -34,13 +35,15 @@ export function Dashboard({
   onCreateGroup,
   onOpenProfile,
   onOpenActivity,
-  onOpenPeople
+  onOpenPeople,
+  onOpenPersonal
 }: DashboardProps) {
   const [showArchived, setShowArchived] = useState(false)
 
   const { data: groupsData, error: groupsError, isLoading: groupsLoading } = useSWR<any[]>('/api/groups', fetcher)
   const { data: balancesData, error: balancesError, isLoading: balancesLoading } = useSWR<Balance[]>('/api/users/me/balances', fetcher)
   const { data: unreadNotifications } = useSWR<any[]>('/api/notifications?unread=true', fetcher)
+  const { data: personalStats } = useSWR<any>('/api/expenses/personal/stats', fetcher)
   
   const hasUnread = (unreadNotifications?.length || 0) > 0
   const balances = balancesData || []
@@ -139,8 +142,38 @@ export function Dashboard({
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
           {/* Left Column: Balance & People */}
           <div className="md:col-span-4 space-y-8">
-            <section className="py-8 md:py-0">
+            <section className="py-8 md:py-0 space-y-6">
               <AnimatedBalance amount={netBalance} />
+              
+              {/* Personal Summary Card */}
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={onOpenPersonal}
+                className="w-full glass-card rounded-3xl p-5 text-left group hover:border-primary/50 transition-all"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Personal Tracker</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                </div>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-2xl font-black">${(personalStats?.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-muted-foreground">Private spending this month</p>
+                  </div>
+                  {personalStats?.categories?.[0] && (
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{personalStats.categories[0].name}</p>
+                      <p className="text-sm font-bold text-primary">{Math.round(personalStats.categories[0].percent)}%</p>
+                    </div>
+                  )}
+                </div>
+              </motion.button>
             </section>
 
             {/* Balances Section */}
@@ -179,6 +212,7 @@ export function Dashboard({
             {/* Quick Summary Pills */}
             <section className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide md:mx-0 md:px-0 md:mt-10">
               <motion.div
+                key="owe-you"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="flex-shrink-0 px-4 py-2 rounded-full bg-positive/20 text-positive text-sm font-medium"
@@ -186,6 +220,7 @@ export function Dashboard({
                 {activeBalances.filter(b => b.amount > 0).length} owe you
               </motion.div>
               <motion.div
+                key="you-owe"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
@@ -194,6 +229,7 @@ export function Dashboard({
                 {activeBalances.filter(b => b.amount < 0).length} you owe
               </motion.div>
               <motion.div
+                key="active-groups"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 }}

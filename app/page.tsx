@@ -14,6 +14,7 @@ import { ActivityView } from '@/components/activity/activity-view'
 import { ProfileView } from '@/components/profile/profile-view'
 import { PeopleView } from '@/components/friends/people-view'
 import { InviteView } from '@/components/friends/invite-view'
+import { PersonalLedger } from '@/components/personal/personal-ledger'
 import { AddExpenseModal } from '@/components/expense/add-expense-modal'
 import { SettleModal } from '@/components/settle/settle-modal'
 import { DesktopSidebar } from '@/components/layout/desktop-sidebar'
@@ -21,7 +22,7 @@ import useSWR from 'swr'
 import { fetcher } from '@/lib/fetcher'
 import type { Group, Balance } from '@/lib/types'
 
-type View = 'dashboard' | 'group' | 'settings' | 'notifications' | 'create-group' | 'add-members' | 'activity' | 'profile' | 'people' | 'stats'
+type View = 'dashboard' | 'group' | 'settings' | 'notifications' | 'create-group' | 'add-members' | 'activity' | 'profile' | 'people' | 'stats' | 'personal'
 
 function HomeContent() {
   const { mutate } = useSWRConfig()
@@ -78,6 +79,9 @@ function HomeContent() {
     if (expense.groupId) {
       mutate(`/api/groups/${expense.groupId}/expenses`)
       mutate(`/api/groups/${expense.groupId}/balances`)
+    } else {
+      mutate('/api/expenses/personal')
+      mutate('/api/expenses/personal/stats')
     }
   }
 
@@ -121,6 +125,7 @@ function HomeContent() {
             onOpenProfile={() => setView('profile')}
             onOpenActivity={() => setView('activity')}
             onOpenPeople={() => setView('people')}
+            onOpenPersonal={() => setView('personal')}
           />
         ) : view === 'settings' ? (
           <SettingsView key="settings" onBack={() => setView('dashboard')} />
@@ -155,10 +160,17 @@ function HomeContent() {
           <ProfileView key="profile" onBack={() => setView('dashboard')} onOpenSettings={() => setView('settings')} onOpenActivity={() => setView('activity')} />
         ) : view === 'people' ? (
           <PeopleView 
-            key="people" 
-            onBack={() => setView('dashboard')} 
             onSettle={(balance) => handleSettle(balance)}
             onInviteFriend={() => setShowInvite(true)}
+          />
+        ) : view === 'personal' ? (
+          <PersonalLedger
+            key="personal"
+            onBack={() => setView('dashboard')}
+            onAddExpense={() => {
+              setAddExpenseContext(null)
+              setShowAddExpense(true)
+            }}
           />
         ) : null}
       </AnimatePresence>

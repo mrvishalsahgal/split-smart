@@ -6,7 +6,7 @@ import { X, Check, Users, ChevronRight, Sparkles, User, ArrowLeft, Loader2 } fro
 import { useSession } from 'next-auth/react'
 import useSWR from 'swr'
 import { fetcher } from '@/lib/fetcher'
-import { categories } from '@/lib/mock-data'
+import { categories } from '@/lib/constants'
 
 interface AddExpenseModalProps {
   isOpen: boolean
@@ -35,7 +35,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
   const users = usersData || []
 
   const [step, setStep] = useState(0)
-  const [expenseType, setExpenseType] = useState<'group' | 'people' | null>(null)
+  const [expenseType, setExpenseType] = useState<'group' | 'people' | 'personal' | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(defaultGroupId || null)
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
@@ -76,13 +76,16 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
     setIsSubmitting(true)
     
     try {
-      const response = await fetch('/api/expenses', {
+      const endpoint = expenseType === 'personal' ? '/api/expenses/personal' : '/api/expenses'
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: description,
+          description,
           amount: parseFloat(amount),
           category: selectedCategory || 'other',
+          emoji: categories.find(c => c.id === selectedCategory)?.emoji || '📦',
           groupId: selectedGroupId,
           splitWith: selectedMembers,
           splits: splitType === 'custom' 
@@ -141,7 +144,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
 
   const canProceed = () => {
     switch (step) {
-      case 0: return expenseType !== null && (expenseType === 'people' || selectedGroupId !== null)
+      case 0: return expenseType !== null && (expenseType === 'personal' || expenseType === 'people' || selectedGroupId !== null)
       case 1: return amount !== '' && parseFloat(amount) > 0 && description !== ''
       case 2: return selectedCategory !== null
       case 3: return selectedMembers.length > 0 && isCustomSplitValid
@@ -150,6 +153,11 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
   }
 
   const handleNext = () => {
+    if (step === 2 && expenseType === 'personal') {
+      handleSubmit()
+      return
+    }
+
     if (step === 0 && expenseType === 'group' && selectedGroupId) {
       const group = groups.find(g => (g._id || g.id) === selectedGroupId)
       if (group) {
@@ -243,6 +251,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
                     selectedGroupId={selectedGroupId}
                     setSelectedGroupId={setSelectedGroupId}
                     groups={groups}
+                    setStep={setStep}
                   />
                 ) : step === 1 ? (
                   <Step1
@@ -319,7 +328,13 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
                 <motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
-                  onClick={step < 3 ? handleNext : handleSubmit}
+                  onClick={() => {
+                    if (step === 2 && expenseType === 'personal') {
+                      handleSubmit()
+                    } else {
+                      step < 3 ? handleNext() : handleSubmit()
+                    }
+                  }}
                   disabled={!canProceed() || isSubmitting}
                   className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
@@ -329,10 +344,10 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, defaultGroupId }: AddE
                       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                       className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
                     />
-                  ) : step < 3 ? (
-                    <>Continue <ChevronRight className="w-4 h-4" /></>
+                  ) : step === 3 || (step === 2 && expenseType === 'personal') ? (
+                    'Add Expense'
                   ) : (
-                    'Split Expense'
+                    <>Continue <ChevronRight className="w-4 h-4" /></>
                   )}
                 </motion.button>
               </div>
@@ -350,20 +365,22 @@ function Step0({
   setExpenseType,
   selectedGroupId,
   setSelectedGroupId,
-  groups
+  groups,
+  setStep
 }: {
-  expenseType: 'group' | 'people' | null
-  setExpenseType: (v: 'group' | 'people') => void
+  expenseType: 'group' | 'people' | 'personal' | null
+  setExpenseType: (v: 'group' | 'people' | 'personal') => void
   selectedGroupId: string | null
   setSelectedGroupId: (v: string | null) => void
   groups: any[]
+  setStep: (v: number) => void
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="space-y-5"
+      className="space-y-6"
     >
       <p className="text-sm text-muted-foreground">How do you want to split?</p>
       
@@ -463,6 +480,31 @@ function Step0({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Personal Tracker */}
+      <div className="space-y-3">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Private Tracking</p>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            setExpenseType('personal')
+            setStep(1)
+          }}
+          className={`w-full p-5 rounded-3xl border-2 transition-all text-left flex items-center gap-4 ${
+            expenseType === 'personal' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'
+          }`}
+        >
+          <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
+            <User className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold">Personal Ledger</p>
+            <p className="text-sm text-muted-foreground">Track private expenses for yourself</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+        </motion.button>
+      </div>
     </motion.div>
   )
 }
@@ -827,9 +869,11 @@ function SuccessAnimation({
         </motion.div>
         <h3 className="text-xl font-bold mb-1">Expense Added!</h3>
         <p className="text-sm text-muted-foreground">
-          {splitType === 'equal' 
-            ? `Split $${amount.toFixed(2)} with ${splitCount - 1} ${splitCount === 2 ? 'person' : 'people'} ($${(amount/splitCount).toFixed(2)} each)`
-            : `Split $${amount.toFixed(2)} with ${splitCount - 1} ${splitCount === 2 ? 'person' : 'people'}`
+          {splitCount === 1 
+            ? `Successfully tracked your $${amount.toFixed(2)} private expense.`
+            : splitType === 'equal' 
+              ? `Split $${amount.toFixed(2)} with ${splitCount - 1} ${splitCount === 2 ? 'person' : 'people'} ($${(amount/splitCount).toFixed(2)} each)`
+              : `Split $${amount.toFixed(2)} with ${splitCount - 1} ${splitCount === 2 ? 'person' : 'people'}`
           }
         </p>
       </motion.div>
